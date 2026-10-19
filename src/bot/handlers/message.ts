@@ -7,6 +7,7 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { L } from "../../utils/i18n.js";
+import { tryJiraDeferInbox } from "./jira-defer-inbox.js";
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
 
@@ -87,6 +88,16 @@ export async function handleMessage(message: Message): Promise<void> {
       sessionManager.resolveCustomInput(message.channelId, text);
       await message.react("✅");
     }
+    return;
+  }
+
+  // [DISCORD-MULTIPURPOSE] v1.14 inbox routing — trigger khi @claude mention
+  // HOẶC reply-to-bot => ghi file v1.14 schema vào .jira-bug/discord-inbox/
+  // cho terminal --manager classifier phân loại intent + act.
+  // KHÔNG spawn Claude session, KHÔNG tool-use trong Discord.
+  const inbox = await tryJiraDeferInbox(message, project.project_path);
+  if (inbox.handled) {
+    if (inbox.reply) await message.reply(inbox.reply);
     return;
   }
 
