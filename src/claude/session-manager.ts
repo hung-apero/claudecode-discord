@@ -17,6 +17,8 @@ import {
   createResultEmbed,
   createStopButton,
   createCompletedButton,
+  createFailedButton,
+  isErrorResultText,
   splitMessage,
   type AskQuestionData,
 } from "./output-formatter.js";
@@ -335,6 +337,8 @@ class SessionManager {
                 result?: string;
                 total_cost_usd?: number;
                 duration_ms?: number;
+                is_error?: boolean;
+                subtype?: string;
               };
 
               // Flush remaining buffer
@@ -350,22 +354,31 @@ class SessionManager {
                 }
               }
 
-              // Replace stop button with completed button
+              const resultText = resultMsg.result ?? L("Task completed", "작업 완료");
+              const sdkError =
+                resultMsg.is_error === true ||
+                (typeof resultMsg.subtype === "string" &&
+                  resultMsg.subtype.startsWith("error"));
+              const errored = sdkError || isErrorResultText(resultText);
+
+              // Replace stop button with completed/failed button
               try {
                 await currentMessage.edit({
-                  components: [createCompletedButton()],
+                  components: [
+                    errored ? createFailedButton() : createCompletedButton(),
+                  ],
                 });
               } catch (e) {
                 console.warn(`[complete] Failed to update completed button for ${channelId}:`, e instanceof Error ? e.message : e);
               }
 
               // Send result embed
-              const resultText = resultMsg.result ?? L("Task completed", "작업 완료");
               const resultEmbed = createResultEmbed(
                 resultText,
                 resultMsg.total_cost_usd ?? 0,
                 resultMsg.duration_ms ?? 0,
                 getConfig().SHOW_COST,
+                errored,
               );
               await channel.send({ embeds: [resultEmbed] });
 

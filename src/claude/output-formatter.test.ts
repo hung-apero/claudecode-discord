@@ -13,6 +13,8 @@ import {
   createAskUserQuestionEmbed,
   createStopButton,
   createCompletedButton,
+  createFailedButton,
+  isErrorResultText,
   type AskQuestionData,
 } from "./output-formatter.js";
 
@@ -208,6 +210,58 @@ describe("createResultEmbed", () => {
     const embed = createResultEmbed("x".repeat(5000), 0, 0);
     expect(embed.data.description!.length).toBeLessThanOrEqual(4000);
   });
+
+  it("renders success title + green when result is clean", () => {
+    const embed = createResultEmbed("All done", 0, 1000);
+    expect(embed.data.title).toContain("✅");
+    expect(embed.data.color).toBe(0x00ff00);
+  });
+
+  it("renders rate-limited title + orange when SDK is429/529 text leaks into result", () => {
+    const embed = createResultEmbed(
+      "API Error: Server is temporarily limiting requests (not your usage limit) · Rate limited",
+      8.7462,
+      42300,
+    );
+    expect(embed.data.title).toContain("⚠️");
+    expect(embed.data.title).toContain("Rate Limited");
+    expect(embed.data.color).toBe(0xffa500);
+  });
+
+  it("renders failed title + red when isError flag is passed", () => {
+    const embed = createResultEmbed("Generic failure", 0, 1000, true, true);
+    expect(embed.data.title).toContain("❌");
+    expect(embed.data.title).toContain("Failed");
+    expect(embed.data.color).toBe(0xff0000);
+  });
+
+  it("renders failed title + red when result text contains credit balance error", () => {
+    const embed = createResultEmbed("Credit balance is too low", 0, 1000);
+    expect(embed.data.title).toContain("❌");
+    expect(embed.data.color).toBe(0xff0000);
+  });
+});
+
+describe("isErrorResultText", () => {
+  it("detects rate-limit messaging", () => {
+    expect(
+      isErrorResultText(
+        "API Error: Server is temporarily limiting requests · Rate limited",
+      ),
+    ).toBe(true);
+  });
+
+  it("detects credit balance error", () => {
+    expect(isErrorResultText("Credit balance is too low")).toBe(true);
+  });
+
+  it("detects overload", () => {
+    expect(isErrorResultText("Model is overloaded")).toBe(true);
+  });
+
+  it("returns false for normal result text", () => {
+    expect(isErrorResultText("Task completed successfully")).toBe(false);
+  });
 });
 
 // ─── createAskUserQuestionEmbed ───
@@ -288,6 +342,14 @@ describe("createStopButton", () => {
 describe("createCompletedButton", () => {
   it("creates disabled button", () => {
     const row = createCompletedButton();
+    expect(row.components[0].data).toHaveProperty("disabled", true);
+  });
+});
+
+describe("createFailedButton", () => {
+  it("creates disabled button with failed customId", () => {
+    const row = createFailedButton();
+    expect(row.components[0].data).toHaveProperty("custom_id", "failed");
     expect(row.components[0].data).toHaveProperty("disabled", true);
   });
 });

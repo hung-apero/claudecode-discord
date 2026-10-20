@@ -84,6 +84,26 @@ export function createCompletedButton(): ActionRowBuilder<ButtonBuilder> {
   );
 }
 
+export function createFailedButton(): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("failed")
+      .setLabel(L("Failed", "실패"))
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("❌")
+      .setDisabled(true),
+  );
+}
+
+const ERROR_SIGNATURE_PATTERN =
+  /API Error|Rate limited|Server is temporarily|credit balance|temporarily unavailable|overloaded|rate[-_ ]?limit/i;
+const RATE_LIMIT_PATTERN =
+  /Rate limited|Server is temporarily limiting|rate[-_ ]?limit|429|529/i;
+
+export function isErrorResultText(resultText: string): boolean {
+  return ERROR_SIGNATURE_PATTERN.test(resultText);
+}
+
 export function createToolApprovalEmbed(
   toolName: string,
   input: Record<string, unknown>,
@@ -254,16 +274,27 @@ export function createResultEmbed(
   costUsd: number,
   durationMs: number,
   showCost: boolean = true,
+  isError: boolean = false,
 ): EmbedBuilder {
   const duration = `${(durationMs / 1000).toFixed(1)}s`;
   const footer = showCost
     ? `${L("Cost (est.)", "비용 (추정)")} : $${costUsd.toFixed(4)}  |  ${L("Duration", "소요 시간")} : ${duration}`
     : `${L("Duration", "소요 시간")} : ${duration}`;
 
+  const errored = isError || isErrorResultText(result);
+  const rateLimited = errored && RATE_LIMIT_PATTERN.test(result);
+
+  const title = errored
+    ? rateLimited
+      ? L("⚠️ Rate Limited", "⚠️ 요청 제한됨")
+      : L("❌ Task Failed", "❌ 작업 실패")
+    : L("✅ Task Complete", "✅ 작업 완료");
+  const color = errored ? (rateLimited ? 0xffa500 : 0xff0000) : 0x00ff00;
+
   const embed = new EmbedBuilder()
-    .setTitle(L("✅ Task Complete", "✅ 작업 완료"))
+    .setTitle(title)
     .setDescription(result.slice(0, 4000))
-    .setColor(0x00ff00)
+    .setColor(color)
     .setFooter({ text: footer })
     .setTimestamp();
 
