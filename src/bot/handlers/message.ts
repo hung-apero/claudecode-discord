@@ -91,15 +91,15 @@ export async function handleMessage(message: Message): Promise<void> {
     return;
   }
 
-  // [DISCORD-MULTIPURPOSE] v1.14 inbox routing — trigger khi @claude mention
-  // HOẶC reply-to-bot => ghi file v1.14 schema vào .jira-bug/discord-inbox/
-  // cho terminal --manager classifier phân loại intent + act.
-  // KHÔNG spawn Claude session, KHÔNG tool-use trong Discord.
+  // [DISCORD-MULTIPURPOSE] v1.14.2 inbox routing — bot CHỈ phản hồi khi @claude mention
+  // HOẶC reply-to-bot. Mọi message khác → im lặng tuyệt đối (không spawn Claude SDK session,
+  // không ghi inbox, không reply) để channel #jira-bug-analyzer không bị bot nhiễu.
   const inbox = await tryJiraDeferInbox(message, project.project_path);
   if (inbox.handled) {
     if (inbox.reply) await message.reply(inbox.reply);
     return;
   }
+  if (process.env.JIRA_BUG_DISCORD_DEFER === "1") return;
 
   let prompt = message.content.trim();
 

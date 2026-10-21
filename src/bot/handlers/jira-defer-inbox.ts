@@ -36,14 +36,13 @@ interface TriggerCheck {
  * Trigger when:
  *   - Bot is mentioned (@claude), OR
  *   - Message is a reply to a message authored by the bot.
+ * Any other message → return null; message.ts caller stays silent (no SDK session).
  */
 async function detectTrigger(message: Message): Promise<TriggerCheck | null> {
   const botId = message.client.user?.id;
   if (!botId) return null;
 
-  // Case A: @claude mention
   if (message.mentions.users.has(botId)) {
-    // If it's also a reply, prefer "reply" semantics so referenced ticket inherits.
     if (message.reference?.messageId) {
       const ref = await safeFetchReference(message);
       if (ref?.author.id === botId) {
@@ -53,7 +52,6 @@ async function detectTrigger(message: Message): Promise<TriggerCheck | null> {
     return { triggerType: "mention" };
   }
 
-  // Case B: reply-to-bot (no explicit mention)
   if (message.reference?.messageId) {
     const ref = await safeFetchReference(message);
     if (ref?.author.id === botId) {
